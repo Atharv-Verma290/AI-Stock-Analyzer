@@ -46,10 +46,10 @@ Help me decide how to distribute investments across META, MSFT, and AMD.
 ```
 
 ### Output:
-1. **Data Retriever**: Fetches historical stock data for META, MSFT, and AMD.
-2. **Analyzer**: Computes the annual returns and volatility for each stock.
-3. **Visualizer**: Generates a plot showing stock price trends.
-4. **Allocator**: Suggests an optimal allocation strategy based on risk and performance.
+1. **Data Retriever**: Fetches historical stock data for META, MSFT, and AMD
+2. **Analyzer**: Computes the annual returns and volatility for each stock
+3. **Visualizer**: Generates a plot showing stock price trends
+4. **Allocator**: Suggests an optimal allocation strategy based on risk and performance
 
 **Visualizer Output:**
 ![Alt text](sample_images/sample_chart.png)
