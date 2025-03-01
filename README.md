@@ -52,7 +52,7 @@ Help me decide how to distribute investments across META, MSFT, and AMD.
 4. **Allocator**: Suggests an optimal allocation strategy based on risk and performance.
 
 **Graph Output Placeholder:**
-![Graph Placeholder](graph_output.png)
+![Graph Placeholder](/charts/stock_trend_20250301_081148.png)
 
 ## Files
 - `app.py`: Main script containing the AI workflow.
