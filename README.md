@@ -19,7 +19,7 @@ The AI-Stock-Analyzer follows a structured workflow managed by a **supervisor ag
 
 The workflow is structured as shown in the diagram:
 
-![Workflow](output.png)
+![Workflow](sample_images/output.png)
 
 ## Installation
 1. Clone the repository:
@@ -52,13 +52,13 @@ Help me decide how to distribute investments across META, MSFT, and AMD.
 4. **Allocator**: Suggests an optimal allocation strategy based on risk and performance.
 
 **Graph Output Placeholder:**
-![Alt text](/Users/atharv/InternshipProjects/CalQuity/charts/stock_trend_20250301_081148.png)
+![Alt text](sample_images/sample_chart.png)
 
 ## Files
-- `app.py`: Main script containing the AI workflow.
-- `main.ipynb`: Jupyter notebook for exploratory analysis.
-- `output.png`: Workflow visualization.
-- `README.md`: Project documentation.
+- `app.py`: Main script containing the AI workflow
+- `main.ipynb`: Jupyter notebook for exploratory analysis
+- `output.png`: Workflow visualization
+- `README.md`: Project documentation
 
 ## Dependencies
 - Python 3.12+
@@ -68,6 +68,7 @@ Help me decide how to distribute investments across META, MSFT, and AMD.
 - `matplotlib`
 - `langchain`
 - `openai`
+- `langgraph`
 
 ## Author
 - Atharv Verma
