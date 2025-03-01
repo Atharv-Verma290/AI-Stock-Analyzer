@@ -69,13 +69,8 @@ Help me decide how to distribute investments across META, MSFT, and AMD.
 - `langchain`
 - `openai`
 
-## License
-MIT License
-
 ## Author
 - Atharv Verma
 - atharv.verma29k@gmail.com
 
-## Acknowledgments
-Special thanks to open-source contributors and AI research communities for providing resources and tools used in this project.
 
