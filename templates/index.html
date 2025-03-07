@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Advisor AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <h1>Stock Advisor AI</h1>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-message">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="chat_container">
+        {% if not chat_history %}
+            <div class="ai-message message">
+                Hello! I'm your stock investment advisor. How can I help you today?
+            </div> 
+        {% else %}
+            {% for message in chat_history %}
+                <div class="{{ 'user-message' if message.role == 'user' else 'ai-message' }} message">
+                    {{ message.content }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    <form class="input-form" action="/send_message" method="post" onsubmit="showLoading()">
+        <input type="text" name="message" placeholder="Type your message here..." required>
+        <button type="submit">Send</button>
+    </form>
+
+    <div id="loadingMessage" style="display: none; color: red; font-weight: bold; margin-top: 10px;">
+        Processing... Please wait.
+    </div>
+
+    <a href="/reset" class="reset-button">Reset Conversation</a>
+
+    {% if chart_path %}
+        <div class="section chart">
+            <h2>Stock Performance Chart</h2>
+            <img src="{{ chart_path }}" alt="Stock Performance Chart">
+        </div>
+    {% endif %}
+
+    {% if analysis %}
+        <div class="section">
+            <h2>Stock Analysis</h2>
+            <div class="analysis">{{ analysis }}</div>
+        </div>
+    {% endif %}
+
+    {% if summary %}
+        <div class="section">
+            <h2>Investment Recommendation</h2>
+            <div class="analysis">{{ summary }}</div>
+        </div>
+    {% endif %}
+
+    <script>
+        function showLoading() {
+            document.getElementById('loadingMessage').style.display = 'block';
+        }
+    </script>
+</body>
+</html>

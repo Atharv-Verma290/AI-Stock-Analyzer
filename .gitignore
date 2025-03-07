@@ -3,3 +3,4 @@
 charts/
 .DS_Store/
 __pycache__/
+static/charts/ 

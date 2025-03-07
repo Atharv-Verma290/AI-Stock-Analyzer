@@ -3,7 +3,6 @@ import os
 from datetime import datetime
 from dotenv import load_dotenv
 from typing import List, Tuple, Dict, TypedDict, Literal
-import json
 
 import yfinance as yf
 import pandas as pd
@@ -17,22 +16,10 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.graph import StateGraph, MessagesState, END
 from langgraph.types import Command, interrupt
 from langgraph.checkpoint.memory import MemorySaver
-from flask import Flask, render_template, request, redirect, url_for, session, flash
 
-
-#Initialize Flask app
-app = Flask(__name__)
-app.secret_key = os.urandom(24) # For session management
-app.config['UPLOAD_FOLDER'] = 'static/charts'
-
-
-# Create directory for charts
-SAVE_DIR = 'static/charts'
-os.makedirs(SAVE_DIR, exist_ok=True)
-
-
-# Load environment variables
 load_dotenv()
+SAVE_DIR = 'charts'
+os.makedirs(SAVE_DIR, exist_ok=True)
 model = ChatOpenAI(model="gpt-4o-mini")
 
 
@@ -109,7 +96,6 @@ def compute_metrics(data: dict) -> dict:
         }
     return results
 
-
 def visualize_trends(data: Dict) -> str:
     """ 
     Visualize the closing price trends for multiple stocks.
@@ -118,7 +104,7 @@ def visualize_trends(data: Dict) -> str:
         data: A dictionary containing the ticker symbols and their corresponding historical stock data.
 
     Returns:
-        str: Path to the plots.
+        None: It displays a matplotlib chart.
     """
     if not data:
         print("No data to visualize.")
@@ -141,24 +127,20 @@ def visualize_trends(data: Dict) -> str:
     plt.savefig(file_name)
     plt.close()
 
-    return file_name
+    return f"Chart saved to: {file_name}"
 
 
 data_retriever_agent = model.bind_tools([fetch_stock_data])
 recommender_agent = model.bind_tools([fetch_stocks_by_risk])
 
-
 members = ["human", "recommender", "data_retriever", "analyzer", "visualizer", "allocator"]
 options = members + ["FINISH"]
-
 
 class AgentState(MessagesState):
     next: str
     data: dict
     analysis: dict 
     summary: str
-    chart_path: str
-
 
 class Router(TypedDict):
     next: Literal[*options] # type: ignore
@@ -279,12 +261,11 @@ def data_retriever_node(state: AgentState) -> Command[Literal["supervisor"]]:
 
 def visualizer_node(state: AgentState) -> Command[Literal["supervisor"]]:
     data = state["data"]
-    chart_path = visualize_trends(data=data)
+    response = visualize_trends(data=data)
     
     return Command(
         update={
-            "messages": [HumanMessage(content="Chart generated successfully.", name="visualizer")],
-            "chart_path": chart_path
+            "messages": [HumanMessage(content=response, name="visualizer")],
         },
         goto="supervisor"
     )
@@ -336,89 +317,80 @@ graph_builder.set_entry_point("supervisor")
 memory = MemorySaver()
 graph = graph_builder.compile(checkpointer=memory)
 
+# Example Usage
+thread = {"configurable": {"thread_id": "1"}}
 
-def get_chat_history():
-    if 'chat_history' not in session:
-        session['chat_history'] = []
-    return session['chat_history']
+# for s in graph.stream(
+#     {"messages": [HumanMessage(content="Hi, I want to invest in some stocks.")]},config=thread, subgraphs=True
+# ):
+#     print(s)
+#     print("-"*50)
 
+# for s in graph.stream(
+#     Command(resume="My risk tolerance is low."), config=thread, subgraphs=True
+# ):
+#     print(s)
+#     print("-"*50)
 
-def add_to_chat_history(role, content):
-    chat_history = get_chat_history()
-    chat_history.append({"role": role, "content": content})
-    session['chat_history'] = chat_history
-    session.modified = True 
+# for s in graph.stream(
+#     Command(resume="Yes. Continue"), config=thread, subgraphs=True
+# ):
+#     print(s)
+#     print("-"*50)
 
+def interactive_console():
+    input_message = {
+        "messages": [HumanMessage(content=input("Enter your initial message: "))]
+    }
 
-# Flask routes
-@app.route('/')
-def index():
-    if 'session_id' not in session:
-        session['session_id'] = str(datetime.now().timestamp())
-        session['chat_history'] = []
-        session['chart_path'] = None
-        session['analysis'] = None
-        session['summary'] = None
+    result = graph.invoke(input_message, config=thread)
+    print("Assistant: ")
+    print('-'*50)
+    print(result["messages"][-1].content)
+    print('-'*50)
 
-    return render_template(
-        'index.html',
-        chat_history=get_chat_history(),
-        chart_path=session.get('chart_path'),
-        analysis=session.get('analysis'),
-        summary=session.get('summary')
-    )
+    while True:
+        user_input = input("Enter your response (or type 'exit' to quit): ")
+        if user_input.lower() == 'exit':
+            break
 
+        result = graph.invoke(Command(resume=user_input), config=thread)
+        print("Assistant: ")
+        print('-'*50)
+        print(result["messages"][-1].content)
+        print('-'*50)
 
-@app.route('/send_message', methods=['POST'])
-def send_message():
-    user_message = request.form.get('message', '')
-    if not user_message.strip():
-        flash('Please enter a message', 'warning')
-        return redirect(url_for('index'))
-    
+        
 
-    # Add user message to chat history
-    add_to_chat_history('user', user_message)
+    # print("Final output: ")
+    # print('-'*50)
+    # print(result.get("summary", "No summary available"))
+    # print('-'*50)
 
-    thread = {"configurable": {"thread_id": session['session_id']}}
+# input_message = {
+#     "messages": [HumanMessage(content="Hi, I want to invest in some stocks.")]
+# }
 
+# result = graph.invoke(input_message, config=thread)
 
-    if len(get_chat_history()) <= 1:
-        # Initialize the conversation
-        initial_message = {
-            "messages": [HumanMessage(content=user_message)]
-        }
-        result = graph.invoke(initial_message, config=thread)
-    
-    else:
-        result = graph.invoke(Command(resume=user_message), config=thread)
+# print("First interrupt output: ")
+# print('-'*50)
+# print(result["messages"][-1])
+# print('-'*50)
 
+# result = graph.invoke(Command(resume="My risk tolerance is low."), config=thread)
 
-    response = result["messages"][-1].content 
-    add_to_chat_history('ai', response)
+# print("Second interrupt output: ")
+# print('-'*50)
+# print(result["messages"][-1])
+# print('-'*50)
 
+# result = graph.invoke(Command(resume="Yes. Continue"), config=thread)
 
-    if 'chart_path' in result and result['chart_path']:
-        session['chart_path'] = result['chart_path']
-
-    if 'analysis' in result and result['analysis']:
-        session['analysis'] = result['analysis']
-
-    if 'summary' in result and result['summary']:
-        session['summary'] = result['summary']
-
-    
-    session.modified = True 
-    return redirect(url_for('index'))
-
-
-@app.route('/reset')
-def reset_conversation():
-    # Clear session
-    session.clear()
-    flash("Conversation has been reset", "info")
-    return redirect(url_for('index'))
-
+# print("Final output: ")
+# print('-'*50)
+# print(result["summary"])
+# print('-'*50)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    interactive_console()
