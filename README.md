@@ -4,6 +4,7 @@
 AI-Stock-Analyzer is an AI-powered stock analysis tool that automates stock data retrieval, trend visualization, financial metric computation, and investment allocation recommendations.
 
 ## Features
+- **Stock Recommendation**: Recommends stocks to invest in, based on risk tolerance.
 - **Data Retrieval**: Fetches historical stock data using Yahoo Finance.
 - **Trend Visualization**: Generates stock price trend charts.
 - **Performance Analysis**: Computes annual returns and volatility.
@@ -12,10 +13,11 @@ AI-Stock-Analyzer is an AI-powered stock analysis tool that automates stock data
 ## Architecture
 The AI-Stock-Analyzer follows a structured workflow managed by a **supervisor agent** that coordinates different functional modules:
 
-1. **Data Retriever**: This agent is responsible for fetching historical stock data from Yahoo Finance based on user input.
-2. **Analyzer**: This agent computes financial metrics, including annual returns and volatility, to assess stock performance.
-3. **Visualizer**: This agent generates trend charts to visualize stock performance over time.
-4. **Allocator**: This agent recommends fund allocation strategies based on the computed metrics and trends.
+1. **Recommender**: this agent recommends stocks to the user based on their risk tolerance.
+2. **Data Retriever**: This agent is responsible for fetching historical stock data from Yahoo Finance based on user input.
+3. **Analyzer**: This agent computes financial metrics, including annual returns and volatility, to assess stock performance.
+4. **Visualizer**: This agent generates trend charts to visualize stock performance over time.
+5. **Allocator**: This agent recommends fund allocation strategies based on the computed metrics and trends.
 
 The workflow is structured as shown in the diagram:
 
@@ -37,26 +39,25 @@ Run the application using:
 ```sh
 python app.py
 ```
-The system will retrieve stock data, analyze trends, and provide allocation recommendations.
+The system will ask for risk_tolerance, recommend stocks, retrieve stock data, analyze trends, and provide allocation recommendations.
 
-## Example Query and Output
-### Input Query:
-```
-Help me decide how to distribute investments across META, MSFT, and AMD.
-```
+## Application Interface:
+![Alt text](sample_images/sample_UI.png)
+![Alt text](sample_images/Sample_UI_2.png)
 
 ### Output:
-1. **Data Retriever**: Fetches historical stock data for META, MSFT, and AMD
-2. **Analyzer**: Computes the annual returns and volatility for each stock
-3. **Visualizer**: Generates a plot showing stock price trends
-4. **Allocator**: Suggests an optimal allocation strategy based on risk and performance
+1. **Recommender**: Recommends stocks based on risk tolerance
+2. **Data Retriever**: Fetches historical stock data for META, MSFT, and AMD
+3. **Analyzer**: Computes the annual returns and volatility for each stock
+4. **Visualizer**: Generates a plot showing stock price trends
+5. **Allocator**: Suggests an optimal allocation strategy based on risk and performance
 
-**Visualizer Output:**
+
 ![Alt text](sample_images/sample_chart.png)
 
 ## Files
-- `app.py`: Main script containing the AI workflow
-- `main.ipynb`: Jupyter notebook for exploratory analysis
+- `app.py`: Main Flask application containing the AI workflow
+- `index.html`: The html UI
 - `output.png`: Workflow visualization
 - `README.md`: Project documentation
 
@@ -69,6 +70,7 @@ Help me decide how to distribute investments across META, MSFT, and AMD.
 - `langchain`
 - `openai`
 - `langgraph`
+- `flask`
 
 ## Author
 - Atharv Verma
