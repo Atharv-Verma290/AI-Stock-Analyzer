@@ -42,7 +42,7 @@ python app.py
 The system will ask for risk_tolerance, recommend stocks, retrieve stock data, analyze trends, and provide allocation recommendations.
 
 ## Application Interface:
-![Alt text](sample_images/sample_UI.png)
+![Alt text](sample_images/Sample_UI.png)
 
 ![Alt text](sample_images/Sample_UI_2.png)
 
