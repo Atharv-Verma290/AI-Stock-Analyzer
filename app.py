@@ -14,7 +14,8 @@ from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.graph import StateGraph, MessagesState, END
-from langgraph.types import Command
+from langgraph.types import Command, interrupt
+from langgraph.checkpoint.memory import MemorySaver
 
 load_dotenv()
 SAVE_DIR = 'charts'
@@ -41,6 +42,27 @@ def fetch_stock_data(tickers: List[str], period='1y') -> Tuple[str, dict]:
         data[ticker] = history.reset_index().to_dict(orient='list')
     response = f"The data for tickers: {tickers} retrieved successfully for period: {period}"
     return response, data
+
+
+@tool
+def fetch_stocks_by_risk(risk_level: str) -> str:
+    """
+    Recommend stocks based on the user's risk tolerance.
+    
+    Args:
+        risk_level: The user's risk tolerance (low, medium, high)
+        
+    Returns:
+        String of list of ticker symbols.
+    """
+    recommendations = {
+        "low": ["JNJ", "KO", "PG"],
+        "medium": ["AAPL", "MSFT", "GOOGL"],
+        "high": ["TSLA", "NVDA", "AMZN"]
+    }
+    recommended_stocks = recommendations.get(risk_level.lower(), [])
+    return f"Here are the stocks for {risk_level.lower()} risk level: {recommended_stocks}."
+
 
 def compute_metrics(data: dict) -> dict:
     """
@@ -109,8 +131,9 @@ def visualize_trends(data: Dict) -> str:
 
 
 data_retriever_agent = model.bind_tools([fetch_stock_data])
+recommender_agent = model.bind_tools([fetch_stocks_by_risk])
 
-members = ["data_retriever", "analyzer", "visualizer", "allocator"]
+members = ["human", "recommender", "data_retriever", "analyzer", "visualizer", "allocator"]
 options = members + ["FINISH"]
 
 class AgentState(MessagesState):
@@ -124,16 +147,27 @@ class Router(TypedDict):
 
 
 SUPERVISOR_PROMPT = """
-You are a supervisor tasked with managing a conversation between the following workers: {members}. 
-Given the current state and following user request, respond with the worker that needs to act next. 
+You are a supervisor managing a conversation between these workers: {members}. 
+
 Select the workers that are needed based on the feedback:
-- "data_retriever" (to fetch the relevant stock data)
-- "visualizer" (to visualize the fetched data)
-- "analyzer" (to analyze the trends from the data)
-- "allocator" (to suggest fund allocation in the sector)
-Each worker will perform a task and respond with their results and status.
-DO NOT CALL any agent MORE THAN ONCE.
-When finished, respond with FINISH."""
+- "data_retriever": fetch stock data
+- "visualizer": visualize stock trends
+- "analyzer": analyze stock metrics
+- "allocator": suggest fund allocations
+- "recommender": recommend stocks based on risk level
+
+DO NOT CALL any agent MORE THAN ONCE, EXCEPT to return to the worker who prompted human input.
+ONLY CALL human IF ANY WORKER ASKS A QUESTION. DO NOT CALL human FIRST.
+IF human IS CALLED, inspect the message history to find the LAST WORKER who asked a question or prompted human input, and RETURN to that worker next.
+When finished, respond with FINISH.
+"""
+
+RECOMMENDER_PROMPT = """"
+You are a stock recommender. Ask the user for their risk tolerance (low, medium, high) if not specified.
+Then call the fetch_stocks_by_risk tool to fetch appropriate stock recommendations.
+After calling the tool output the result of the tool.
+Finally, ask the user if they want to continue with these stocks.
+"""
 
 DATA_RETRIEVER_PROMPT = """
 You are a data retriever. You must call the fetch_stock_data tool to retrieve the historical stock data which the user requires.The tool argument should be LIST OF TICKERS given by user. ONLY OUTPUT tool_calls AND NOTHING ELSE.
@@ -164,6 +198,43 @@ def supervisor_node(state: AgentState) -> Command[Literal[*members, "__end__"]]:
     if goto == "FINISH":
         goto = END
     return Command(update={"next": goto}, goto=goto)
+
+
+def human_node(state: AgentState) -> Command[Literal["supervisor"]]:
+    user_response = interrupt(state["messages"][-1].content)
+    if user_response:
+        return Command(
+            update={
+                "messages": [HumanMessage(content=user_response, name="human")],
+            },
+            goto="supervisor"
+        )
+
+
+def recommender_node(state: AgentState) -> Command[Literal["supervisor"]]:
+    messages = [
+        SystemMessage(content=RECOMMENDER_PROMPT),
+    ] + state["messages"]
+    ai_msg = recommender_agent.invoke(messages)
+    messages.append(ai_msg)
+    tool_call_made = False
+    for tool_call in ai_msg.tool_calls:
+        selected_tool = {"fetch_stocks_by_risk": fetch_stocks_by_risk}[tool_call["name"].lower()]
+        tool_msg = selected_tool.invoke(tool_call)
+        messages.append(tool_msg)
+        tool_call_made = True
+
+    if tool_call_made:
+        # print(messages[-1])
+        ai_msg = recommender_agent.invoke(messages)
+        messages.append(ai_msg)
+
+    return Command(
+        update={
+            "messages": [HumanMessage(content=messages[-1].content, name="recommender")],
+        },
+        goto="supervisor"
+    )
 
 
 def data_retriever_node(state: AgentState) -> Command[Literal["supervisor"]]:
@@ -235,17 +306,91 @@ def allocator_node(state: AgentState) -> Command[Literal["supervisor"]]:
 
 graph_builder = StateGraph(AgentState)
 graph_builder.add_node("supervisor", supervisor_node)
+graph_builder.add_node("human", human_node)
+graph_builder.add_node("recommender", recommender_node)
 graph_builder.add_node("data_retriever", data_retriever_node)
 graph_builder.add_node("visualizer", visualizer_node)
 graph_builder.add_node("analyzer", analyzer_node)
 graph_builder.add_node("allocator", allocator_node)
 graph_builder.set_entry_point("supervisor")
 
-graph = graph_builder.compile()
+memory = MemorySaver()
+graph = graph_builder.compile(checkpointer=memory)
 
 # Example Usage
-for s in graph.stream(
-    {"messages": [HumanMessage(content="Help me decide how to distribute investments across META, MSFT, and AMD.")]}, subgraphs=True
-):
-    print(s)
-    print("-"*50)
+thread = {"configurable": {"thread_id": "1"}}
+
+# for s in graph.stream(
+#     {"messages": [HumanMessage(content="Hi, I want to invest in some stocks.")]},config=thread, subgraphs=True
+# ):
+#     print(s)
+#     print("-"*50)
+
+# for s in graph.stream(
+#     Command(resume="My risk tolerance is low."), config=thread, subgraphs=True
+# ):
+#     print(s)
+#     print("-"*50)
+
+# for s in graph.stream(
+#     Command(resume="Yes. Continue"), config=thread, subgraphs=True
+# ):
+#     print(s)
+#     print("-"*50)
+
+def interactive_console():
+    input_message = {
+        "messages": [HumanMessage(content=input("Enter your initial message: "))]
+    }
+
+    result = graph.invoke(input_message, config=thread)
+    print("Assistant: ")
+    print('-'*50)
+    print(result["messages"][-1].content)
+    print('-'*50)
+
+    while True:
+        user_input = input("Enter your response (or type 'exit' to quit): ")
+        if user_input.lower() == 'exit':
+            break
+
+        result = graph.invoke(Command(resume=user_input), config=thread)
+        print("Assistant: ")
+        print('-'*50)
+        print(result["messages"][-1].content)
+        print('-'*50)
+
+        
+
+    # print("Final output: ")
+    # print('-'*50)
+    # print(result.get("summary", "No summary available"))
+    # print('-'*50)
+
+# input_message = {
+#     "messages": [HumanMessage(content="Hi, I want to invest in some stocks.")]
+# }
+
+# result = graph.invoke(input_message, config=thread)
+
+# print("First interrupt output: ")
+# print('-'*50)
+# print(result["messages"][-1])
+# print('-'*50)
+
+# result = graph.invoke(Command(resume="My risk tolerance is low."), config=thread)
+
+# print("Second interrupt output: ")
+# print('-'*50)
+# print(result["messages"][-1])
+# print('-'*50)
+
+# result = graph.invoke(Command(resume="Yes. Continue"), config=thread)
+
+# print("Final output: ")
+# print('-'*50)
+# print(result["summary"])
+# print('-'*50)
+
+if __name__ == "__main__":
+    interactive_console()
