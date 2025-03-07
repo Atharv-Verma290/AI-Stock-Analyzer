@@ -43,6 +43,7 @@ The system will ask for risk_tolerance, recommend stocks, retrieve stock data, a
 
 ## Application Interface:
 ![Alt text](sample_images/sample_UI.png)
+
 ![Alt text](sample_images/Sample_UI_2.png)
 
 ### Output:
@@ -51,9 +52,6 @@ The system will ask for risk_tolerance, recommend stocks, retrieve stock data, a
 3. **Analyzer**: Computes the annual returns and volatility for each stock
 4. **Visualizer**: Generates a plot showing stock price trends
 5. **Allocator**: Suggests an optimal allocation strategy based on risk and performance
-
-
-![Alt text](sample_images/sample_chart.png)
 
 ## Files
 - `app.py`: Main Flask application containing the AI workflow
